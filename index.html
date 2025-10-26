@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intoxication Detection Test</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Start Menu Screen -->
+    <div id="startScreen" class="screen">
+        <div class="container">
+            <h1>Intoxication Detection Test</h1>
+            <p>This test uses scientifically-validated methods to detect signs of alcohol impairment. You will complete three short modules that measure cognitive function, motor stability, and additional motor function testing. The entire test takes approximately 5 minutes. Results are processed locally and not stored or transmitted.</p>
+            <button onclick="startTest()" class="btn">Begin Test</button>
+        </div>
+    </div>
+
+    <!-- Module 1A - PVT Test -->
+    <div id="pvtScreen" class="screen">
+        <div class="container">
+            <h2>Module 1A - Reaction Time Test</h2>
+            <p>Tap the screen as quickly as possible when you see a number appear. Stay focused for 1 minute.</p>
+            <div id="pvtBox" class="pvt-box">
+                <div id="pvtStimulus" class="pvt-stimulus"></div>
+            </div>
+            <div id="pvtTimer" class="timer">Time: 0:00</div>
+            <div id="pvtStatus" class="status">Get ready...</div>
+        </div>
+    </div>
+
+    <!-- Module 1B - Trail Making Test -->
+    <div id="trailsScreen" class="screen">
+        <div class="container">
+            <h2>Module 1B - Trail Making Test</h2>
+            <p>Tap the circles in order: 1, 2, 3, etc. Be as fast and accurate as possible.</p>
+            <div id="trailsContainer" class="trails-container">
+                <!-- Circles will be generated here -->
+            </div>
+            <div id="trailsStatus" class="status">Tap circle 1 to begin</div>
+            <button id="completeModule1" onclick="completeModule1()" class="btn" style="display: none;">Complete Module 1</button>
+        </div>
+    </div>
+
+    <!-- Module 2 - Face Stabilization -->
+    <div id="faceScreen" class="screen">
+        <div class="container">
+            <h2>Module 2 - Hand Stabilization Test</h2>
+            <p>Hold your phone steady and keep your face inside the oval for 10 seconds. Try to remain as still as possible.</p>
+            <div id="cameraContainer" class="camera-container">
+                <video id="video" autoplay muted playsinline></video>
+                <div id="ovalOverlay" class="oval-overlay"></div>
+                <div id="faceStatus" class="face-status">INSIDE</div>
+            </div>
+            <div id="faceTimer" class="timer">Time: 0:00</div>
+            <div id="faceProgress" class="progress">Progress: 0%</div>
+            <button id="completeModule2" onclick="completeModule2()" class="btn" style="display: none;">Complete Module 2</button>
+        </div>
+    </div>
+
+    <!-- Module 3 - Placeholder -->
+    <div id="module3Screen" class="screen">
+        <div class="container">
+            <h2>Module 3 - Coming Soon</h2>
+            <p>This module is currently under development.</p>
+            <button onclick="completeModule3()" class="btn">Complete Module 3</button>
+        </div>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="resultsScreen" class="screen">
+        <div class="container">
+            <h1>Test Complete</h1>
+            <p>You have completed all testing modules.</p>
+            <div id="resultsContent">
+                <!-- Results will be populated here -->
+            </div>
+            <button onclick="restartTest()" class="btn">Restart Test</button>
+        </div>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="errorScreen" class="screen">
+        <div class="container">
+            <h2>Error</h2>
+            <div id="errorMessage"></div>
+            <button onclick="restartTest()" class="btn">Restart Test</button>
+        </div>
+    </div>
+
+    <!-- Load MediaPipe Face Mesh -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

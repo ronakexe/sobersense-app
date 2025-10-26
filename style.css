@@ -1,0 +1,384 @@
+/* Techy cool styling for intoxication detection app */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Share Tech Mono', monospace;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #0a0a0a;
+    color: #00ff88;
+    line-height: 1.5;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Screen management */
+.screen {
+    display: none;
+}
+
+.screen.active {
+    display: block;
+}
+
+/* Container styling */
+.container {
+    border: 2px solid #00ff88;
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 30px;
+    background: #111111;
+    box-shadow: 0 4px 20px rgba(0, 255, 136, 0.2);
+    position: relative;
+}
+
+/* Typography */
+h1, h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 25px;
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+h1 {
+    font-size: 32px;
+    font-weight: 900;
+    color: #00ff88;
+}
+
+p {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    color: #b0b0b0;
+    text-shadow: 0 0 5px rgba(176, 176, 176, 0.3);
+}
+
+/* Button styling */
+.btn {
+    padding: 15px 30px;
+    font-size: 16px;
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    border: 2px solid #00ff88;
+    background: #111111;
+    color: #00ff88;
+    cursor: pointer;
+    margin-top: 25px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.3);
+}
+
+.btn:hover {
+    background: #00ff88;
+    color: #0a0a0a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 255, 136, 0.5);
+}
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 255, 136, 0.4);
+}
+
+/* PVT Test styling */
+.pvt-box {
+    width: 350px;
+    height: 250px;
+    border: 2px solid #00ff88;
+    border-radius: 8px;
+    margin: 25px auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #111111;
+    box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+    transition: all 0.3s ease;
+}
+
+.pvt-box:hover {
+    box-shadow: 0 6px 25px rgba(0, 255, 136, 0.4);
+    transform: translateY(-2px);
+}
+
+.pvt-stimulus {
+    font-family: 'Orbitron', monospace;
+    font-size: 64px;
+    font-weight: 900;
+    color: #00ff88;
+    text-shadow: 0 0 20px rgba(0, 255, 136, 0.8);
+    display: none;
+    animation: pulse 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.timer {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 15px 0;
+    color: #0096ff;
+    text-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+    font-family: 'Orbitron', monospace;
+}
+
+.status {
+    text-align: center;
+    font-size: 18px;
+    margin: 15px 0;
+    color: #00ff88;
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: bold;
+}
+
+/* Trail Making Test styling */
+.trails-container {
+    position: relative;
+    width: 100%;
+    height: 450px;
+    border: 2px solid #0096ff;
+    border-radius: 8px;
+    margin: 25px 0;
+    overflow: hidden;
+    background: #111111;
+    box-shadow: 0 4px 20px rgba(0, 150, 255, 0.3);
+}
+
+.trail-circle {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid #00ff88;
+    background: #111111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 20px;
+    font-family: 'Orbitron', monospace;
+    color: #00ff88;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0, 255, 136, 0.3);
+}
+
+.trail-circle:hover {
+    background: #00ff88;
+    color: #0a0a0a;
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(0, 255, 136, 0.5);
+}
+
+/* Removed highlighting styles - circles now disappear when clicked */
+
+/* Camera and face detection styling */
+.camera-container {
+    position: relative;
+    width: 100%;
+    max-width: 700px;
+    margin: 25px auto;
+    border: 2px solid #ff0066;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #111111;
+    box-shadow: 0 4px 20px rgba(255, 0, 102, 0.3);
+}
+
+#video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 12px;
+}
+
+.oval-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 280px;
+    height: 380px;
+    border: 3px solid #00ff88;
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
+}
+
+.face-status {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    font-weight: bold;
+    font-family: 'Orbitron', monospace;
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    backdrop-filter: blur(10px);
+}
+
+.face-status.inside {
+    color: #00ff88;
+    background: rgba(0, 255, 136, 0.2);
+    border: 2px solid #00ff88;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
+}
+
+.face-status.outside {
+    color: #ff0066;
+    background: rgba(255, 0, 102, 0.2);
+    border: 2px solid #ff0066;
+    text-shadow: 0 0 10px rgba(255, 0, 102, 0.8);
+    box-shadow: 0 0 15px rgba(255, 0, 102, 0.4);
+}
+
+.progress {
+    text-align: center;
+    font-size: 18px;
+    margin: 15px 0;
+    color: #0096ff;
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: bold;
+    text-shadow: 0 0 8px rgba(0, 150, 255, 0.5);
+}
+
+/* Results styling */
+#resultsContent {
+    margin: 25px 0;
+    padding: 20px;
+    background: #111111;
+    border-radius: 8px;
+    border: 2px solid #0096ff;
+    box-shadow: 0 4px 20px rgba(0, 150, 255, 0.3);
+}
+
+#resultsContent h3, #resultsContent h4 {
+    font-family: 'Orbitron', monospace;
+    color: #00ff88;
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+    margin-bottom: 15px;
+}
+
+#resultsContent ul {
+    margin: 15px 0;
+    padding-left: 25px;
+}
+
+#resultsContent li {
+    margin: 8px 0;
+    color: #b0b0b0;
+    font-family: 'Share Tech Mono', monospace;
+    text-shadow: 0 0 5px rgba(176, 176, 176, 0.3);
+    transition: all 0.3s ease;
+}
+
+#resultsContent li:hover {
+    color: #00ff88;
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+    transform: translateX(5px);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    body {
+        padding: 15px;
+    }
+    
+    .container {
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    h1 {
+        font-size: 24px;
+    }
+    
+    h2 {
+        font-size: 20px;
+    }
+    
+    .pvt-box {
+        width: 280px;
+        height: 180px;
+    }
+    
+    .pvt-stimulus {
+        font-size: 48px;
+    }
+    
+    .oval-overlay {
+        width: 220px;
+        height: 300px;
+    }
+    
+    .trails-container {
+        height: 350px;
+    }
+    
+    .trail-circle {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
+    }
+    
+    .btn {
+        padding: 15px 25px;
+        font-size: 14px;
+    }
+    
+    .timer, .status, .progress {
+        font-size: 16px;
+    }
+    
+    .face-status {
+        font-size: 16px;
+        padding: 6px 12px;
+    }
+}
+
+
+/* Error styling */
+#errorScreen {
+    border: 2px solid #ff0066;
+    box-shadow: 0 4px 20px rgba(255, 0, 102, 0.3);
+}
+
+#errorMessage {
+    color: #ff0066;
+    font-weight: bold;
+    font-family: 'Share Tech Mono', monospace;
+    margin: 25px 0;
+    text-shadow: 0 0 10px rgba(255, 0, 102, 0.6);
+    font-size: 18px;
+    text-align: center;
+}
