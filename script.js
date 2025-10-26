@@ -44,7 +44,6 @@ let pvtState = {
     startTime: 0,
     stimulusStartTime: 0,
     trialCount: 0,
-    maxTrials: 30,
     testDuration: 60000, // 1 minute in milliseconds
     nextStimulusTime: 0,
     waitingForResponse: false
@@ -83,15 +82,25 @@ function scheduleNextStimulus() {
     const now = performance.now();
     const elapsed = now - pvtState.startTime;
     
-    // Check if test should end
-    if (elapsed >= pvtState.testDuration || pvtState.trialCount >= pvtState.maxTrials) {
+    // Check if test should end based on time only
+    if (elapsed >= pvtState.testDuration) {
         endPVT();
         return;
     }
     
-    // Schedule next stimulus
-    pvtState.nextStimulusTime = now + getRandomInterval();
-    setTimeout(showStimulus, pvtState.nextStimulusTime - now);
+    // Schedule next stimulus, but cap the delay to ensure we check time again soon
+    const delay = Math.min(getRandomInterval(), pvtState.testDuration - elapsed);
+    if (delay <= 0) {
+        endPVT();
+        return;
+    }
+    
+    pvtState.nextStimulusTime = now + delay;
+    setTimeout(() => {
+        if (pvtState.isRunning && performance.now() - pvtState.startTime < pvtState.testDuration) {
+            showStimulus();
+        }
+    }, delay);
 }
 
 function showStimulus() {
@@ -143,11 +152,20 @@ function updatePVTTimer() {
     if (!pvtState.isRunning) return;
     
     const elapsed = performance.now() - pvtState.startTime;
+    const remaining = Math.max(0, pvtState.testDuration - elapsed);
+    
+    // Check if time is up
+    if (remaining <= 0) {
+        endPVT();
+        return;
+    }
+    
     const minutes = Math.floor(elapsed / 60000);
     const seconds = Math.floor((elapsed % 60000) / 1000);
+    const remainingSeconds = Math.ceil(remaining / 1000);
     
     document.getElementById('pvtTimer').textContent = 
-        `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        `Time: ${minutes}:${seconds.toString().padStart(2, '0')} (${remainingSeconds}s remaining)`;
     
     requestAnimationFrame(updatePVTTimer);
 }
@@ -333,10 +351,10 @@ function completeModule1() {
 let faceState = {
     isRunning: false,
     startTime: 0,
-    faceMesh: null,
+    model: null,
     video: null,
     canvas: null,
-    camera: null,
+    ctx: null,
     timeInOval: 0,
     lastFrameTime: 0,
     facePositions: []
@@ -344,6 +362,8 @@ let faceState = {
 
 async function startFaceTest() {
     try {
+        faceState.video = document.getElementById('video');
+        
         // Request camera access
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { 
@@ -353,14 +373,28 @@ async function startFaceTest() {
             }
         });
         
-        faceState.video = document.getElementById('video');
         faceState.video.srcObject = stream;
         
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+            faceState.video.onloadedmetadata = () => {
+                faceState.video.play();
+                resolve();
+            };
+        });
+        
         // Initialize MediaPipe Face Mesh
-        await initializeFaceMesh();
+        try {
+            await initializeFaceMesh();
+        } catch (meshError) {
+            console.error('FaceMesh initialization failed:', meshError);
+            showError('Face detection unavailable. Please check your internet connection and try again.');
+            return;
+        }
         
         faceState.isRunning = true;
         faceState.startTime = performance.now();
+        faceState.lastFrameTime = performance.now();
         faceState.timeInOval = 0;
         faceState.facePositions = [];
         
@@ -374,50 +408,76 @@ async function startFaceTest() {
         };
         
         updateFaceTimer();
-        processFaceFrames();
+        
+        // Start face detection after a short delay
+        setTimeout(() => {
+            detectFace();
+        }, 100);
         
     } catch (error) {
+        console.error('Face test error:', error);
         showError('Camera access required. Please enable camera permissions and refresh the page.');
     }
 }
 
 async function initializeFaceMesh() {
-    try {
-        faceState.faceMesh = new FaceMesh({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+    return new Promise(async (resolve, reject) => {
+        try {
+            console.log('Loading BlazeFace model...');
+            
+            if (typeof blazeface === 'undefined') {
+                reject(new Error('BlazeFace not loaded'));
+                return;
             }
-        });
-        
-        faceState.faceMesh.setOptions({
-            maxNumFaces: 1,
-            refineLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-        
-        faceState.faceMesh.onResults(onFaceResults);
-        
-    } catch (error) {
-        showError('Face detection unavailable. Please check your internet connection.');
-    }
+            
+            faceState.model = await blazeface.load();
+            console.log('BlazeFace model loaded successfully');
+            
+            // Create canvas for face detection
+            faceState.canvas = document.createElement('canvas');
+            faceState.ctx = faceState.canvas.getContext('2d');
+            
+            resolve();
+        } catch (error) {
+            console.error('BlazeFace initialization error:', error);
+            reject(error);
+        }
+    });
 }
 
-function onFaceResults(results) {
-    if (!faceState.isRunning) return;
+async function detectFace() {
+    if (!faceState.isRunning || !faceState.model || !faceState.video || !faceState.canvas) return;
     
     const currentTime = performance.now();
-    const elapsed = currentTime - faceState.startTime;
     
-    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-        const landmarks = results.multiFaceLandmarks[0];
-        const faceCenter = calculateFaceCenter(landmarks);
+    // Set canvas size to match video
+    faceState.canvas.width = faceState.video.videoWidth;
+    faceState.canvas.height = faceState.video.videoHeight;
+    
+    // Draw video frame to canvas
+    faceState.ctx.drawImage(faceState.video, 0, 0, faceState.canvas.width, faceState.canvas.height);
+    
+    // Detect faces
+    const predictions = await faceState.model.estimateFaces(faceState.canvas, false);
+    
+    if (predictions.length > 0) {
+        const prediction = predictions[0];
+        const faceBox = prediction.topLeft;
+        
+        // Calculate face center (BlazeFace returns topLeft and bottomRight)
+        const faceCenter = {
+            x: (faceBox[0] + prediction.bottomRight[0]) / 2 / faceState.canvas.width,
+            y: (faceBox[1] + prediction.bottomRight[1]) / 2 / faceState.canvas.height
+        };
         
         // Check if face is in oval
         const isInOval = isFaceInOval(faceCenter);
         
+        // Calculate time delta since last frame
+        const deltaTime = currentTime - faceState.lastFrameTime;
+        
         if (isInOval) {
-            faceState.timeInOval += currentTime - faceState.lastFrameTime;
+            faceState.timeInOval += deltaTime;
             document.getElementById('faceStatus').textContent = 'INSIDE';
             document.getElementById('faceStatus').className = 'face-status inside';
         } else {
@@ -439,54 +499,57 @@ function onFaceResults(results) {
         // Check if test is complete
         if (faceState.timeInOval >= 10000) {
             completeFaceTest();
+            return;
         }
+    } else {
+        // No face detected
+        document.getElementById('faceStatus').textContent = 'NO FACE';
+        document.getElementById('faceStatus').className = 'face-status outside';
     }
     
     faceState.lastFrameTime = currentTime;
-}
-
-function calculateFaceCenter(landmarks) {
-    // Use key facial landmarks to calculate center
-    const leftEye = landmarks[33];
-    const rightEye = landmarks[362];
-    const nose = landmarks[1];
     
-    return {
-        x: (leftEye.x + rightEye.x + nose.x) / 3,
-        y: (leftEye.y + rightEye.y + nose.y) / 3
-    };
+    // Continue detection loop
+    requestAnimationFrame(detectFace);
 }
 
 function isFaceInOval(faceCenter) {
     const video = faceState.video;
-    const videoRect = video.getBoundingClientRect();
+    if (!video) return false;
     
-    // Convert normalized coordinates to pixel coordinates
-    const faceX = faceCenter.x * videoRect.width;
-    const faceY = faceCenter.y * videoRect.height;
+    // Face center is in normalized coordinates (0-1)
+    // We need to check if it's within the oval boundaries
     
-    // Oval center and dimensions
-    const ovalCenterX = videoRect.width / 2;
-    const ovalCenterY = videoRect.height / 2;
-    const ovalWidth = 250;
-    const ovalHeight = 350;
+    // The oval is positioned at the center with these dimensions
+    // These match the CSS oval dimensions (280px x 380px)
+    // We need to calculate based on the actual video dimensions
     
-    // Check if face center is within oval bounds
-    const dx = (faceX - ovalCenterX) / (ovalWidth / 2);
-    const dy = (faceY - ovalCenterY) / (ovalHeight / 2);
+    const ovalWidth = 280;
+    const ovalHeight = 380;
     
-    return (dx * dx + dy * dy) <= 1;
+    // Calculate oval center in normalized coordinates (should be 0.5, 0.5 for center)
+    const videoWidth = video.videoWidth || video.clientWidth;
+    const videoHeight = video.videoHeight || video.clientHeight;
+    
+    // Normalized oval dimensions
+    const normalizedOvalWidth = ovalWidth / videoWidth;
+    const normalizedOvalHeight = ovalHeight / videoHeight;
+    
+    // Oval center (middle of video)
+    const ovalCenterX = 0.5;
+    const ovalCenterY = 0.5;
+    
+    // Check if face center is within oval bounds (ellipse equation)
+    // (x - cx)^2 / a^2 + (y - cy)^2 / b^2 <= 1
+    const dx = (faceCenter.x - ovalCenterX) / (normalizedOvalWidth / 2);
+    const dy = (faceCenter.y - ovalCenterY) / (normalizedOvalHeight / 2);
+    
+    const distanceFromCenter = dx * dx + dy * dy;
+    
+    return distanceFromCenter <= 1;
 }
 
-function processFaceFrames() {
-    if (!faceState.isRunning) return;
-    
-    if (faceState.video && faceState.faceMesh) {
-        faceState.faceMesh.send({ image: faceState.video });
-    }
-    
-    requestAnimationFrame(processFaceFrames);
-}
+
 
 function updateFaceTimer() {
     if (!faceState.isRunning) return;
@@ -639,10 +702,10 @@ function restartTest() {
     faceState = {
         isRunning: false,
         startTime: 0,
-        faceMesh: null,
+        model: null,
         video: null,
         canvas: null,
-        camera: null,
+        ctx: null,
         timeInOval: 0,
         lastFrameTime: 0,
         facePositions: []
