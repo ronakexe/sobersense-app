@@ -347,289 +347,11 @@ function completeModule1() {
     startFaceTest();
 }
 
-// ===== MODULE 2 - FACE STABILIZATION TEST =====
-let faceState = {
-    isRunning: false,
-    startTime: 0,
-    model: null,
-    video: null,
-    canvas: null,
-    ctx: null,
-    timeInOval: 0,
-    lastFrameTime: 0,
-    facePositions: []
-};
-
-async function startFaceTest() {
-    try {
-        faceState.video = document.getElementById('video');
-        
-        // Request camera access
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-                facingMode: 'user',
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            }
-        });
-        
-        faceState.video.srcObject = stream;
-        
-        // Wait for video to be ready
-        await new Promise((resolve) => {
-            faceState.video.onloadedmetadata = () => {
-                faceState.video.play();
-                resolve();
-            };
-        });
-        
-        // Initialize MediaPipe Face Mesh
-        try {
-            await initializeFaceMesh();
-        } catch (meshError) {
-            console.error('FaceMesh initialization failed:', meshError);
-            showError('Face detection unavailable. Please check your internet connection and try again.');
-            return;
-        }
-        
-        faceState.isRunning = true;
-        faceState.startTime = performance.now();
-        faceState.lastFrameTime = performance.now();
-        faceState.timeInOval = 0;
-        faceState.facePositions = [];
-        
-        // Reset test data
-        testData.faceTest = {
-            timeInOval: 0,
-            exitCount: 0,
-            averageDeviation: 0,
-            frameData: [],
-            startTime: 0
-        };
-        
-        updateFaceTimer();
-        
-        // Start face detection after a short delay
-        setTimeout(() => {
-            detectFace();
-        }, 100);
-        
-    } catch (error) {
-        console.error('Face test error:', error);
-        showError('Camera access required. Please enable camera permissions and refresh the page.');
-    }
-}
-
-async function initializeFaceMesh() {
-    return new Promise(async (resolve, reject) => {
-        try {
-            console.log('Loading BlazeFace model...');
-            
-            if (typeof blazeface === 'undefined') {
-                reject(new Error('BlazeFace not loaded'));
-                return;
-            }
-            
-            faceState.model = await blazeface.load();
-            console.log('BlazeFace model loaded successfully');
-            
-            // Create canvas for face detection
-            faceState.canvas = document.createElement('canvas');
-            faceState.ctx = faceState.canvas.getContext('2d');
-            
-            resolve();
-        } catch (error) {
-            console.error('BlazeFace initialization error:', error);
-            reject(error);
-        }
-    });
-}
-
-async function detectFace() {
-    if (!faceState.isRunning || !faceState.model || !faceState.video || !faceState.canvas) return;
-    
-    const currentTime = performance.now();
-    
-    // Set canvas size to match video
-    faceState.canvas.width = faceState.video.videoWidth;
-    faceState.canvas.height = faceState.video.videoHeight;
-    
-    // Draw video frame to canvas
-    faceState.ctx.drawImage(faceState.video, 0, 0, faceState.canvas.width, faceState.canvas.height);
-    
-    // Detect faces
-    const predictions = await faceState.model.estimateFaces(faceState.canvas, false);
-    
-    if (predictions.length > 0) {
-        const prediction = predictions[0];
-        const faceBox = prediction.topLeft;
-        
-        // Calculate face center (BlazeFace returns topLeft and bottomRight)
-        const faceCenter = {
-            x: (faceBox[0] + prediction.bottomRight[0]) / 2 / faceState.canvas.width,
-            y: (faceBox[1] + prediction.bottomRight[1]) / 2 / faceState.canvas.height
-        };
-        
-        // Check if face is in oval
-        const isInOval = isFaceInOval(faceCenter);
-        
-        // Calculate time delta since last frame
-        const deltaTime = currentTime - faceState.lastFrameTime;
-        
-        if (isInOval) {
-            faceState.timeInOval += deltaTime;
-            document.getElementById('faceStatus').textContent = 'INSIDE';
-            document.getElementById('faceStatus').className = 'face-status inside';
-        } else {
-            document.getElementById('faceStatus').textContent = 'OUTSIDE';
-            document.getElementById('faceStatus').className = 'face-status outside';
-        }
-        
-        // Record frame data
-        faceState.facePositions.push({
-            time: currentTime,
-            center: faceCenter,
-            inOval: isInOval
-        });
-        
-        // Update progress
-        const progress = Math.min((faceState.timeInOval / 10000) * 100, 100);
-        document.getElementById('faceProgress').textContent = `Progress: ${progress.toFixed(1)}%`;
-        
-        // Check if test is complete
-        if (faceState.timeInOval >= 10000) {
-            completeFaceTest();
-            return;
-        }
-    } else {
-        // No face detected
-        document.getElementById('faceStatus').textContent = 'NO FACE';
-        document.getElementById('faceStatus').className = 'face-status outside';
-    }
-    
-    faceState.lastFrameTime = currentTime;
-    
-    // Continue detection loop
-    requestAnimationFrame(detectFace);
-}
-
-function isFaceInOval(faceCenter) {
-    const video = faceState.video;
-    if (!video) return false;
-    
-    // Face center is in normalized coordinates (0-1)
-    // We need to check if it's within the oval boundaries
-    
-    // The oval is positioned at the center with these dimensions
-    // These match the CSS oval dimensions (280px x 380px)
-    // We need to calculate based on the actual video dimensions
-    
-    const ovalWidth = 280;
-    const ovalHeight = 380;
-    
-    // Calculate oval center in normalized coordinates (should be 0.5, 0.5 for center)
-    const videoWidth = video.videoWidth || video.clientWidth;
-    const videoHeight = video.videoHeight || video.clientHeight;
-    
-    // Normalized oval dimensions
-    const normalizedOvalWidth = ovalWidth / videoWidth;
-    const normalizedOvalHeight = ovalHeight / videoHeight;
-    
-    // Oval center (middle of video)
-    const ovalCenterX = 0.5;
-    const ovalCenterY = 0.5;
-    
-    // Check if face center is within oval bounds (ellipse equation)
-    // (x - cx)^2 / a^2 + (y - cy)^2 / b^2 <= 1
-    const dx = (faceCenter.x - ovalCenterX) / (normalizedOvalWidth / 2);
-    const dy = (faceCenter.y - ovalCenterY) / (normalizedOvalHeight / 2);
-    
-    const distanceFromCenter = dx * dx + dy * dy;
-    
-    return distanceFromCenter <= 1;
-}
-
-
-
-function updateFaceTimer() {
-    if (!faceState.isRunning) return;
-    
-    const elapsed = performance.now() - faceState.startTime;
-    const seconds = Math.floor(elapsed / 1000);
-    const milliseconds = Math.floor((elapsed % 1000) / 10);
-    
-    document.getElementById('faceTimer').textContent = 
-        `Time: ${seconds}:${milliseconds.toString().padStart(2, '0')}`;
-    
-    requestAnimationFrame(updateFaceTimer);
-}
-
-function completeFaceTest() {
-    faceState.isRunning = false;
-    
-    // Stop camera
-    if (faceState.video && faceState.video.srcObject) {
-        const tracks = faceState.video.srcObject.getTracks();
-        tracks.forEach(track => track.stop());
-    }
-    
-    // Calculate final metrics
-    calculateFaceMetrics();
-    
-    document.getElementById('faceStatus').textContent = 'COMPLETE';
-    document.getElementById('faceStatus').className = 'face-status inside';
-    document.getElementById('completeModule2').style.display = 'block';
-}
-
-function calculateFaceMetrics() {
-    const totalTime = performance.now() - faceState.startTime;
-    const timeInOvalPercent = (faceState.timeInOval / totalTime) * 100;
-    
-    // Count exits
-    let exitCount = 0;
-    let wasInOval = false;
-    
-    faceState.facePositions.forEach(frame => {
-        if (wasInOval && !frame.inOval) {
-            exitCount++;
-        }
-        wasInOval = frame.inOval;
-    });
-    
-    // Calculate average deviation
-    const deviations = faceState.facePositions.map(frame => {
-        const video = faceState.video;
-        const videoRect = video.getBoundingClientRect();
-        const faceX = frame.center.x * videoRect.width;
-        const faceY = frame.center.y * videoRect.height;
-        const ovalCenterX = videoRect.width / 2;
-        const ovalCenterY = videoRect.height / 2;
-        
-        return Math.sqrt(
-            Math.pow(faceX - ovalCenterX, 2) + 
-            Math.pow(faceY - ovalCenterY, 2)
-        );
-    });
-    
-    const averageDeviation = deviations.length > 0 
-        ? deviations.reduce((sum, dev) => sum + dev, 0) / deviations.length 
-        : 0;
-    
-    // Store results
-    testData.faceTest = {
-        timeInOval: timeInOvalPercent,
-        exitCount: exitCount,
-        averageDeviation: averageDeviation,
-        frameData: faceState.facePositions,
-        startTime: faceState.startTime
-    };
-}
-
+// ===== MODULE 2 - FACE DETECTION =====
 function completeModule2() {
     showScreen('module3Screen');
 }
 
-// ===== MODULE 3 - PLACEHOLDER =====
 function completeModule3() {
     showScreen('resultsScreen');
     displayResults();
@@ -656,13 +378,6 @@ function displayResults() {
     html += `<li>Errors: ${testData.trails.errors}</li>`;
     html += '</ul>';
     
-    // Face Test Results
-    html += '<h4>Module 2 - Face Stabilization</h4>';
-    html += '<ul>';
-    html += `<li>Time in Oval: ${testData.faceTest.timeInOval.toFixed(1)}%</li>`;
-    html += `<li>Exit Count: ${testData.faceTest.exitCount}</li>`;
-    html += '</ul>';
-    
     resultsContent.innerHTML = html;
 }
 
@@ -686,8 +401,7 @@ function restartTest() {
         startTime: 0,
         stimulusStartTime: 0,
         trialCount: 0,
-        maxTrials: 30,
-        testDuration: 120000,
+        testDuration: 60000,
         nextStimulusTime: 0,
         waitingForResponse: false
     };
@@ -699,27 +413,246 @@ function restartTest() {
         isComplete: false
     };
     
+    // Reset face detection state
     faceState = {
-        isRunning: false,
-        startTime: 0,
-        model: null,
+        faceDetector: null,
         video: null,
-        canvas: null,
-        ctx: null,
-        timeInOval: 0,
-        lastFrameTime: 0,
-        facePositions: []
+        stream: null,
+        isRunning: false,
+        isInsideOval: false,
+        consecutiveTime: 0,
+        animationFrameId: null,
+        startTime: 0
     };
     
     // Reset UI elements
     document.getElementById('pvtStimulus').style.display = 'none';
     document.getElementById('completeModule1').style.display = 'none';
-    document.getElementById('completeModule2').style.display = 'none';
     
     showScreen('startScreen');
+}
+
+// ===== MODULE 2 - FACE DETECTION =====
+let faceState = {
+    faceDetector: null,
+    video: null,
+    stream: null,
+    isRunning: false,
+    isInsideOval: false,
+    consecutiveTime: 0,
+    animationFrameId: null,
+    startTime: 0
+};
+
+async function initializeFaceDetection() {
+    try {
+        const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+        );
+        
+        faceState.faceDetector = await FaceDetector.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+                delegate: "GPU"
+            },
+            runningMode: "VIDEO"
+        });
+        
+        return true;
+    } catch (error) {
+        console.error('Face detection initialization error:', error);
+        showError('Failed to initialize face detection. Please check your connection and try again.');
+        return false;
+    }
+}
+
+async function startFaceTest() {
+    try {
+        // Get video element
+        faceState.video = document.getElementById('video');
+        
+        // Request camera access
+        faceState.stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+                facingMode: 'user',
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        });
+        
+        faceState.video.srcObject = faceState.stream;
+        
+        // Wait for video to be ready
+        await new Promise((resolve) => {
+            faceState.video.onloadedmetadata = () => {
+                faceState.video.play();
+                resolve();
+            };
+        });
+        
+        // Initialize MediaPipe Face Detector
+        const initialized = await initializeFaceDetection();
+        if (!initialized) {
+            return;
+        }
+        
+        // Reset state
+        faceState.isRunning = true;
+        faceState.isInsideOval = false;
+        faceState.consecutiveTime = 0;
+        faceState.startTime = performance.now();
+        
+        // Reset test data
+        testData.faceTest = {
+            timeInOval: 0,
+            exitCount: 0,
+            averageDeviation: 0,
+            frameData: [],
+            startTime: performance.now()
+        };
+        
+        // Reset UI
+        document.getElementById('faceStatus').textContent = 'Position your face in the oval';
+        document.getElementById('faceStatus').className = 'face-status outside';
+        document.getElementById('faceTimer').textContent = 'Time: 10s';
+        document.getElementById('faceProgress').textContent = 'Progress: 0%';
+        
+        // Start detection loop
+        detectFaceInFrame();
+        
+    } catch (error) {
+        console.error('Face test error:', error);
+        showError('Camera access required. Please enable camera permissions and refresh the page.');
+    }
+}
+
+function detectFaceInFrame() {
+    if (!faceState.isRunning || !faceState.faceDetector) return;
+    
+    const video = faceState.video;
+    const nowInMs = performance.now();
+    
+    // Run detection
+    const detections = faceState.faceDetector.detectForVideo(video, nowInMs);
+    
+    if (detections.detections.length > 0) {
+        const detection = detections.detections[0];
+        const bbox = detection.boundingBox;
+        
+        // Calculate face center point
+        const faceCenterX = bbox.originX + bbox.width / 2;
+        const faceCenterY = bbox.originY + bbox.height / 2;
+        
+        // Check if face is inside oval
+        const isInside = isPointInOval(faceCenterX, faceCenterY);
+        
+        // Update state
+        if (isInside) {
+            if (!faceState.isInsideOval) {
+                faceState.isInsideOval = true;
+                faceState.consecutiveTime = performance.now();
+                document.getElementById('faceStatus').textContent = 'Face Inside - Hold Still!';
+                document.getElementById('faceStatus').className = 'face-status inside';
+                
+                // Update oval border color
+                document.querySelector('.face-oval-overlay').classList.remove('outside');
+                document.querySelector('.face-oval-overlay').classList.add('inside');
+            }
+            
+            // Update timer
+            const timeInside = (performance.now() - faceState.consecutiveTime) / 1000;
+            const remaining = 10 - timeInside;
+            
+            if (remaining > 0) {
+                document.getElementById('faceTimer').textContent = `Time: ${remaining.toFixed(1)}s`;
+                const progress = ((10 - remaining) / 10) * 100;
+                document.getElementById('faceProgress').textContent = `Progress: ${progress.toFixed(0)}%`;
+            } else {
+                // Success! Move to Module 3
+                faceState.isRunning = false;
+                document.getElementById('faceStatus').textContent = 'Complete! Moving to next module...';
+                document.getElementById('faceStatus').className = 'face-status inside';
+                
+                if (faceState.stream) {
+                    faceState.stream.getTracks().forEach(track => track.stop());
+                }
+                
+                setTimeout(() => {
+                    completeModule2();
+                }, 1500);
+                return;
+            }
+        } else {
+            // Face exited oval - reset timer
+            if (faceState.isInsideOval) {
+                faceState.isInsideOval = false;
+                testData.faceTest.exitCount++;
+                
+                document.getElementById('faceStatus').textContent = 'Face Outside - Move back into the oval';
+                document.getElementById('faceStatus').className = 'face-status outside';
+                
+                // Update oval border color
+                document.querySelector('.face-oval-overlay').classList.remove('inside');
+                document.querySelector('.face-oval-overlay').classList.add('outside');
+                
+                document.getElementById('faceTimer').textContent = 'Time: 10s';
+                document.getElementById('faceProgress').textContent = 'Progress: 0%';
+            }
+        }
+    } else {
+        // No face detected
+        if (faceState.isInsideOval) {
+            faceState.isInsideOval = false;
+        }
+        document.getElementById('faceStatus').textContent = 'No Face Detected';
+        document.getElementById('faceStatus').className = 'face-status outside';
+        
+        // Update oval border color
+        document.querySelector('.face-oval-overlay').classList.remove('inside');
+        document.querySelector('.face-oval-overlay').classList.add('outside');
+    }
+    
+    // Continue detection loop
+    faceState.animationFrameId = requestAnimationFrame(detectFaceInFrame);
+}
+
+function isPointInOval(x, y) {
+    const video = faceState.video;
+    const videoRect = video.getBoundingClientRect();
+    
+    // Get oval overlay element
+    const ovalOverlay = document.querySelector('.face-oval-overlay');
+    const ovalRect = ovalOverlay.getBoundingClientRect();
+    
+    // Oval dimensions from CSS (280px × 380px)
+    const ovalWidth = 280;
+    const ovalHeight = 380;
+    
+    // Calculate oval center relative to video element
+    const ovalCenterX = (ovalRect.left - videoRect.left + ovalWidth / 2);
+    const ovalCenterY = (ovalRect.top - videoRect.top + ovalHeight / 2);
+    
+    // Calculate if point is inside ellipse
+    // Account for video mirror transform (scaleX(-1))
+    const xRelative = x - ovalCenterX;
+    const yRelative = y - ovalCenterY;
+    
+    const a = ovalWidth / 2;  // Semi-major axis (horizontal)
+    const b = ovalHeight / 2; // Semi-minor axis (vertical)
+    
+    // Ellipse equation: (x/a)² + (y/b)² <= 1
+    const ellipseValue = Math.pow(xRelative / a, 2) + Math.pow(yRelative / b, 2);
+    
+    return ellipseValue <= 1;
 }
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     showScreen('startScreen');
+    
+    // Initialize oval overlay with default state
+    const ovalOverlay = document.querySelector('.face-oval-overlay');
+    if (ovalOverlay) {
+        ovalOverlay.classList.add('outside');
+    }
 });
