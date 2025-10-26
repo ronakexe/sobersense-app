@@ -46,14 +46,13 @@
     <div id="faceScreen" class="screen">
         <div class="container">
             <h2>Module 2 - Face Stabilization</h2>
-            <p>Keep your face centered in the oval. Hold steady for 10 seconds.</p>
+            <p>Position your face in the oval and hold steady.</p>
             <div class="face-test-container">
                 <video id="video" autoplay muted playsinline></video>
                 <div class="face-oval-overlay"></div>
             </div>
-            <div id="faceStatus" class="face-status">Ready</div>
-            <div id="faceTimer" class="timer">Time: 0:00</div>
-            <div id="faceProgress" class="status">Progress: 0%</div>
+            <div id="faceStatus" class="face-status">Get ready...</div>
+            <div id="faceTimer" class="timer">Timer: 10s</div>
             <button id="completeModule2" onclick="completeModule2()" class="btn" style="display: none;">Complete Module 2</button>
         </div>
     </div>
@@ -61,7 +60,7 @@
     <!-- Module 3 - Placeholder -->
     <div id="module3Screen" class="screen">
         <div class="container">
-            <h2>Module 3 - Coming Soon</h2>
+            <h2>Module 3 - Work in Progress</h2>
             <p>This module is currently under development.</p>
             <button onclick="completeModule3()" class="btn">Complete Module 3</button>
         </div>
@@ -88,7 +87,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm/vision_bundle.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

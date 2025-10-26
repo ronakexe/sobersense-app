@@ -415,15 +415,16 @@ function restartTest() {
     
     // Reset face detection state
     faceState = {
-        faceDetector: null,
         video: null,
         stream: null,
-        isRunning: false,
-        isInsideOval: false,
-        consecutiveTime: 0,
-        animationFrameId: null,
-        startTime: 0
+        countdownTimer: null,
+        mainTimer: null,
+        isRunning: false
     };
+    
+    // Clear any running timers
+    if (faceState.countdownTimer) clearInterval(faceState.countdownTimer);
+    if (faceState.mainTimer) clearInterval(faceState.mainTimer);
     
     // Reset UI elements
     document.getElementById('pvtStimulus').style.display = 'none';
@@ -432,39 +433,14 @@ function restartTest() {
     showScreen('startScreen');
 }
 
-// ===== MODULE 2 - FACE DETECTION =====
+// ===== MODULE 2 - FACE STABILIZATION =====
 let faceState = {
-    faceDetector: null,
     video: null,
     stream: null,
-    isRunning: false,
-    isInsideOval: false,
-    consecutiveTime: 0,
-    animationFrameId: null,
-    startTime: 0
+    countdownTimer: null,
+    mainTimer: null,
+    isRunning: false
 };
-
-async function initializeFaceDetection() {
-    try {
-        const vision = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-        );
-        
-        faceState.faceDetector = await FaceDetector.createFromOptions(vision, {
-            baseOptions: {
-                modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
-                delegate: "GPU"
-            },
-            runningMode: "VIDEO"
-        });
-        
-        return true;
-    } catch (error) {
-        console.error('Face detection initialization error:', error);
-        showError('Failed to initialize face detection. Please check your connection and try again.');
-        return false;
-    }
-}
 
 async function startFaceTest() {
     try {
@@ -490,35 +466,13 @@ async function startFaceTest() {
             };
         });
         
-        // Initialize MediaPipe Face Detector
-        const initialized = await initializeFaceDetection();
-        if (!initialized) {
-            return;
-        }
-        
-        // Reset state
-        faceState.isRunning = true;
-        faceState.isInsideOval = false;
-        faceState.consecutiveTime = 0;
-        faceState.startTime = performance.now();
-        
-        // Reset test data
-        testData.faceTest = {
-            timeInOval: 0,
-            exitCount: 0,
-            averageDeviation: 0,
-            frameData: [],
-            startTime: performance.now()
-        };
-        
         // Reset UI
-        document.getElementById('faceStatus').textContent = 'Position your face in the oval';
-        document.getElementById('faceStatus').className = 'face-status outside';
-        document.getElementById('faceTimer').textContent = 'Time: 10s';
-        document.getElementById('faceProgress').textContent = 'Progress: 0%';
+        document.getElementById('faceStatus').textContent = 'Get ready...';
+        document.getElementById('faceStatus').className = 'face-status';
+        document.getElementById('faceTimer').textContent = 'Timer: 10s';
         
-        // Start detection loop
-        detectFaceInFrame();
+        // Start 5 second countdown, then start the 10 second timer
+        startCountdown();
         
     } catch (error) {
         console.error('Face test error:', error);
@@ -526,133 +480,55 @@ async function startFaceTest() {
     }
 }
 
-function detectFaceInFrame() {
-    if (!faceState.isRunning || !faceState.faceDetector) return;
+function startCountdown() {
+    let countdown = 5;
+    document.getElementById('faceStatus').textContent = `Starting in ${countdown}...`;
     
-    const video = faceState.video;
-    const nowInMs = performance.now();
-    
-    // Run detection
-    const detections = faceState.faceDetector.detectForVideo(video, nowInMs);
-    
-    if (detections.detections.length > 0) {
-        const detection = detections.detections[0];
-        const bbox = detection.boundingBox;
-        
-        // Calculate face center point
-        const faceCenterX = bbox.originX + bbox.width / 2;
-        const faceCenterY = bbox.originY + bbox.height / 2;
-        
-        // Check if face is inside oval
-        const isInside = isPointInOval(faceCenterX, faceCenterY);
-        
-        // Update state
-        if (isInside) {
-            if (!faceState.isInsideOval) {
-                faceState.isInsideOval = true;
-                faceState.consecutiveTime = performance.now();
-                document.getElementById('faceStatus').textContent = 'Face Inside - Hold Still!';
-                document.getElementById('faceStatus').className = 'face-status inside';
-                
-                // Update oval border color
-                document.querySelector('.face-oval-overlay').classList.remove('outside');
-                document.querySelector('.face-oval-overlay').classList.add('inside');
-            }
-            
-            // Update timer
-            const timeInside = (performance.now() - faceState.consecutiveTime) / 1000;
-            const remaining = 10 - timeInside;
-            
-            if (remaining > 0) {
-                document.getElementById('faceTimer').textContent = `Time: ${remaining.toFixed(1)}s`;
-                const progress = ((10 - remaining) / 10) * 100;
-                document.getElementById('faceProgress').textContent = `Progress: ${progress.toFixed(0)}%`;
-            } else {
-                // Success! Move to Module 3
-                faceState.isRunning = false;
-                document.getElementById('faceStatus').textContent = 'Complete! Moving to next module...';
-                document.getElementById('faceStatus').className = 'face-status inside';
-                
-                if (faceState.stream) {
-                    faceState.stream.getTracks().forEach(track => track.stop());
-                }
-                
-                setTimeout(() => {
-                    completeModule2();
-                }, 1500);
-                return;
-            }
+    faceState.countdownTimer = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+            document.getElementById('faceStatus').textContent = `Starting in ${countdown}...`;
         } else {
-            // Face exited oval - reset timer
-            if (faceState.isInsideOval) {
-                faceState.isInsideOval = false;
-                testData.faceTest.exitCount++;
-                
-                document.getElementById('faceStatus').textContent = 'Face Outside - Move back into the oval';
-                document.getElementById('faceStatus').className = 'face-status outside';
-                
-                // Update oval border color
-                document.querySelector('.face-oval-overlay').classList.remove('inside');
-                document.querySelector('.face-oval-overlay').classList.add('outside');
-                
-                document.getElementById('faceTimer').textContent = 'Time: 10s';
-                document.getElementById('faceProgress').textContent = 'Progress: 0%';
-            }
+            clearInterval(faceState.countdownTimer);
+            document.getElementById('faceStatus').textContent = 'Hold steady!';
+            document.getElementById('faceStatus').className = 'face-status inside';
+            startMainTimer();
         }
-    } else {
-        // No face detected
-        if (faceState.isInsideOval) {
-            faceState.isInsideOval = false;
-        }
-        document.getElementById('faceStatus').textContent = 'No Face Detected';
-        document.getElementById('faceStatus').className = 'face-status outside';
-        
-        // Update oval border color
-        document.querySelector('.face-oval-overlay').classList.remove('inside');
-        document.querySelector('.face-oval-overlay').classList.add('outside');
-    }
-    
-    // Continue detection loop
-    faceState.animationFrameId = requestAnimationFrame(detectFaceInFrame);
+    }, 1000);
 }
 
-function isPointInOval(x, y) {
-    const video = faceState.video;
-    const videoRect = video.getBoundingClientRect();
+function startMainTimer() {
+    faceState.isRunning = true;
+    let timeRemaining = 10;
     
-    // Get oval overlay element
-    const ovalOverlay = document.querySelector('.face-oval-overlay');
-    const ovalRect = ovalOverlay.getBoundingClientRect();
+    document.getElementById('faceTimer').textContent = `Timer: ${timeRemaining}s`;
     
-    // Oval dimensions from CSS (280px × 380px)
-    const ovalWidth = 280;
-    const ovalHeight = 380;
-    
-    // Calculate oval center relative to video element
-    const ovalCenterX = (ovalRect.left - videoRect.left + ovalWidth / 2);
-    const ovalCenterY = (ovalRect.top - videoRect.top + ovalHeight / 2);
-    
-    // Calculate if point is inside ellipse
-    // Account for video mirror transform (scaleX(-1))
-    const xRelative = x - ovalCenterX;
-    const yRelative = y - ovalCenterY;
-    
-    const a = ovalWidth / 2;  // Semi-major axis (horizontal)
-    const b = ovalHeight / 2; // Semi-minor axis (vertical)
-    
-    // Ellipse equation: (x/a)² + (y/b)² <= 1
-    const ellipseValue = Math.pow(xRelative / a, 2) + Math.pow(yRelative / b, 2);
-    
-    return ellipseValue <= 1;
+    faceState.mainTimer = setInterval(() => {
+        timeRemaining--;
+        document.getElementById('faceTimer').textContent = `Timer: ${timeRemaining}s`;
+        
+        if (timeRemaining <= 0) {
+            clearInterval(faceState.mainTimer);
+            faceState.isRunning = false;
+            
+            // Stop camera
+            if (faceState.stream) {
+                faceState.stream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Show completion message
+            document.getElementById('faceStatus').textContent = 'Module 2 complete! Moving to next module...';
+            document.getElementById('faceStatus').className = 'face-status inside';
+            
+            // Move to Module 3 after 1.5 seconds
+            setTimeout(() => {
+                completeModule2();
+            }, 1500);
+        }
+    }, 1000);
 }
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     showScreen('startScreen');
-    
-    // Initialize oval overlay with default state
-    const ovalOverlay = document.querySelector('.face-oval-overlay');
-    if (ovalOverlay) {
-        ovalOverlay.classList.add('outside');
-    }
 });
