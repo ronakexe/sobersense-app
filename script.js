@@ -350,6 +350,123 @@ function completeModule1() {
 // ===== MODULE 2 - FACE DETECTION =====
 function completeModule2() {
     showScreen('module3Screen');
+    startModule3();
+}
+
+// ===== MODULE 3 - AI FACE ANALYSIS =====
+let module3State = {
+    model: null,
+    webcam: null,
+    labelContainer: null,
+    maxPredictions: 0,
+    analysisDuration: 10000, // 10 seconds
+    startTime: 0,
+    isRunning: false,
+    results: { sober: [], drunk: [] }
+};
+
+async function startModule3() {
+    try {
+        // Update UI
+        document.getElementById('module3Status').textContent = 'Loading AI model...';
+        document.getElementById('webcam-container').innerHTML = '';
+        document.getElementById('label-container').innerHTML = '';
+        document.getElementById('completeModule3Btn').style.display = 'none';
+        
+        // Load the model
+        const modelURL = './tm model/model.json';
+        const metadataURL = './tm model/metadata.json';
+        
+        module3State.model = await tmImage.load(modelURL, metadataURL);
+        module3State.maxPredictions = module3State.model.getTotalClasses();
+        
+        // Setup webcam
+        document.getElementById('module3Status').textContent = 'Starting camera...';
+        const flip = true;
+        module3State.webcam = new tmImage.Webcam(400, 400, flip);
+        await module3State.webcam.setup();
+        await module3State.webcam.play();
+        
+        // Append webcam to DOM
+        document.getElementById('webcam-container').appendChild(module3State.webcam.canvas);
+        
+        // Setup label container
+        module3State.labelContainer = document.getElementById('label-container');
+        for (let i = 0; i < module3State.maxPredictions; i++) {
+            module3State.labelContainer.appendChild(document.createElement('div'));
+        }
+        
+        // Start analysis
+        document.getElementById('module3Status').textContent = 'Analyzing face...';
+        module3State.startTime = performance.now();
+        module3State.isRunning = true;
+        module3State.results = { sober: [], drunk: [] };
+        
+        // Start prediction loop
+        predictModule3();
+        
+    } catch (error) {
+        console.error('Module 3 error:', error);
+        showError('Failed to initialize AI face analysis. Please check camera permissions and try again.');
+    }
+}
+
+async function predictModule3() {
+    if (!module3State.isRunning) return;
+    
+    const elapsed = performance.now() - module3State.startTime;
+    
+    // Update webcam
+    module3State.webcam.update();
+    
+    // Make prediction
+    const prediction = await module3State.model.predict(module3State.webcam.canvas);
+    
+    // Update labels
+    for (let i = 0; i < module3State.maxPredictions; i++) {
+        const classPrediction = prediction[i].className + ": " + (prediction[i].probability * 100).toFixed(2) + "%";
+        module3State.labelContainer.childNodes[i].innerHTML = classPrediction;
+        
+        // Store results
+        if (prediction[i].className === 'sober') {
+            module3State.results.sober.push(prediction[i].probability);
+        } else if (prediction[i].className === 'drunk') {
+            module3State.results.drunk.push(prediction[i].probability);
+        }
+    }
+    
+    // Check if 10 seconds have passed
+    if (elapsed >= module3State.analysisDuration) {
+        // Analysis complete
+        module3State.isRunning = false;
+        stopModule3Analysis();
+    } else {
+        // Continue analysis
+        window.requestAnimationFrame(predictModule3);
+    }
+}
+
+function stopModule3Analysis() {
+    // Stop webcam
+    if (module3State.webcam) {
+        module3State.webcam.stop();
+    }
+    
+    // Calculate final results
+    const avgSober = module3State.results.sober.reduce((a, b) => a + b, 0) / module3State.results.sober.length;
+    const avgDrunk = module3State.results.drunk.reduce((a, b) => a + b, 0) / module3State.results.drunk.length;
+    
+    // Store in test data
+    testData.module3 = {
+        avgSober: avgSober || 0,
+        avgDrunk: avgDrunk || 0,
+        finalPrediction: avgDrunk > avgSober ? 'drunk' : 'sober',
+        confidence: avgDrunk > avgSober ? avgDrunk : avgSober
+    };
+    
+    // Update UI
+    document.getElementById('module3Status').textContent = `Analysis complete! Final prediction: ${testData.module3.finalPrediction} (${(testData.module3.confidence * 100).toFixed(1)}% confidence)`;
+    document.getElementById('completeModule3Btn').style.display = 'block';
 }
 
 function completeModule3() {
@@ -377,6 +494,17 @@ function displayResults() {
     html += `<li>Completion Time: ${(testData.trails.completionTime / 1000).toFixed(1)}s</li>`;
     html += `<li>Errors: ${testData.trails.errors}</li>`;
     html += '</ul>';
+    
+    // Module 3 Results
+    if (testData.module3) {
+        html += '<h4>Module 3 - AI Face Analysis</h4>';
+        html += '<ul>';
+        html += `<li>Prediction: <strong>${testData.module3.finalPrediction.toUpperCase()}</strong></li>`;
+        html += `<li>Confidence: ${(testData.module3.confidence * 100).toFixed(1)}%</li>`;
+        html += `<li>Sober Probability: ${(testData.module3.avgSober * 100).toFixed(1)}%</li>`;
+        html += `<li>Drunk Probability: ${(testData.module3.avgDrunk * 100).toFixed(1)}%</li>`;
+        html += '</ul>';
+    }
     
     resultsContent.innerHTML = html;
 }
@@ -411,6 +539,21 @@ function restartTest() {
         currentTarget: 1,
         startTime: 0,
         isComplete: false
+    };
+    
+    // Reset Module 3 state
+    if (module3State && module3State.webcam) {
+        module3State.webcam.stop();
+    }
+    module3State = {
+        model: null,
+        webcam: null,
+        labelContainer: null,
+        maxPredictions: 0,
+        analysisDuration: 10000,
+        startTime: 0,
+        isRunning: false,
+        results: { sober: [], drunk: [] }
     };
     
     // Reset face detection state
