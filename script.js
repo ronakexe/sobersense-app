@@ -481,20 +481,12 @@ async function startFaceTest() {
 }
 
 function startCountdown() {
-    let countdown = 5;
-    document.getElementById('faceStatus').textContent = `Starting in ${countdown}...`;
-    
-    faceState.countdownTimer = setInterval(() => {
-        countdown--;
-        if (countdown > 0) {
-            document.getElementById('faceStatus').textContent = `Starting in ${countdown}...`;
-        } else {
-            clearInterval(faceState.countdownTimer);
-            document.getElementById('faceStatus').textContent = 'Hold steady!';
-            document.getElementById('faceStatus').className = 'face-status inside';
-            startMainTimer();
-        }
-    }, 1000);
+    // Just wait 5 seconds silently, then start the main timer
+    setTimeout(() => {
+        document.getElementById('faceStatus').textContent = 'Hold steady!';
+        document.getElementById('faceStatus').className = 'face-status inside';
+        startMainTimer();
+    }, 5000);
 }
 
 function startMainTimer() {
